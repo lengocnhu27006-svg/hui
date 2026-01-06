@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Quản Lý Hụi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+.chu-hui{
+    text-align:center;
+    font-size:20px;   /* TO HƠN */
+    font-weight:700;  /* ĐẬM */
+    margin-bottom:20px;
+    color:#222;
+}
+body{font-family:Arial;background:#f4f6f8;padding:20px;margin:0}
+
+/* HOME */
+#home .logo{ text-align:center; font-size:24px; font-weight:bold; margin:16px 0 20px; }
+.hui-card-btn{
+    display:flex; align-items:center; background:#fff; border-radius:12px; padding:10px;
+    margin-bottom:14px; box-shadow:0 3px 8px rgba(0,0,0,.15); cursor:pointer;
+}
+.hui-card-btn img{ width:60px; height:60px; border-radius:10px; object-fit:cover; margin-right:12px; }
+.hui-card-btn span{ font-size:18px; font-weight:bold; }
+
+/* APP */
+#app{ display:none; }
+button{ padding:6px 10px; border:none; border-radius:4px; cursor:pointer; margin:4px; font-weight:bold;}
+button.them{ background:#27ae60; color:#fff; }
+button.hot{ background:#f39c12; color:#fff; }
+button.xoa{ background:#c0392b; color:#fff; }
+button.ky{ background:#8e44ad; color:#fff; }
+
+table{ width:100%; border-collapse:collapse; margin-top:10px; background:#fff; }
+th, td{ border:1px solid #ccc; padding:8px; text-align:center; }
+th{ background:#3498db; color:#fff; }
+input[type="text"]{ width:100%; border:none; background:transparent; text-align:center; font-weight:bold; font-size:16px; }
+
+.info{background:#fff;padding:10px;border-radius:6px;margin-bottom:10px}
+.tongHot{margin-top:10px;font-size:16px;font-weight:bold}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div id="home">
+    <div class="logo">📒 QUẢN LÝ HỤI</div>
+    <div class="chu-hui">👤 Chủ hụi: Nguyễn Hằng Ni</div>
+
+    <div class="hui-card-btn" onclick="openHui(5000000)">
+        <img src="hui5.png" alt="Hụi 5 triệu">
+        <span>Hụi 5tr / 1 tháng</span>
+    </div>
+
+    <div class="hui-card-btn" onclick="openHui(10000000)">
+        <img src="hui10.png" alt="Hụi 10 triệu">
+        <span>Hụi 10tr / 1 tháng</span>
+    </div>
+
+    <div class="hui-card-btn" onclick="openHui(20000000)">
+        <img src="hui20.png" alt="Hụi 20 triệu">
+        <span>Hụi 20tr / 1 tháng</span>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+    <button class="ky" onclick="goHome()">⬅ Quay về</button>
+
+    <div class="info">
+        <b>Kỳ:</b>
+        <button class="ky" onclick="doiKy(-1)">⬅</button>
+        <input type="number" id="ky" value="1" onchange="capNhatKy()">
+        <button class="ky" onclick="doiKy(1)">➡</button>
+        &nbsp;&nbsp;
+        <b>Ngày khui:</b>
+        <input type="date" id="ngayKhui" onchange="capNhatNgay()">
+    </div>
+
+    <button class="them" onclick="themNguoi()">➕ Thêm người</button>
+    <button class="ky" onclick="xuatPDF()">📤 Xuất PDF gửi Zalo</button>
+    <button class="xoa" onclick="resetHui()">♻ Reset dây hụi</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Tên</th>
+                <th>Đã đóng</th>
+                <th>Tiền đóng</th>
+                <th>Bỏ thăm</th>
+                <th>Hốt</th>
+                <th>Xoá</th>
+            </tr>
+        </thead>
+        <tbody id="bang"></tbody>
+    </table>
+
+    <div class="tongHot" id="tongHot"></div>
+</div>
+
+<script>
+let currentMoney = 0;
+const DAU_THAO = 10000000;
+let huiData = JSON.parse(localStorage.getItem("huiAppData")||"{}");
+
+function save(){ localStorage.setItem("huiAppData", JSON.stringify(huiData)); }
+function goHome(){ document.getElementById("app").style.display="none"; document.getElementById("home").style.display="block"; }
+
+function openHui(money){
+    currentMoney = money;
+    if(!huiData[money]) huiData[money] = { ky:1, ngay:{}, tongHot:{}, danhSach:[] };
+    document.getElementById("home").style.display="none";
+    document.getElementById("app").style.display="block";
+    render();
+}
+
+function capNhatKy(){ huiData[currentMoney].ky = parseInt(ky.value)||1; save(); render(); }
+function doiKy(s){ huiData[currentMoney].ky += s; if(huiData[currentMoney].ky<1) huiData[currentMoney].ky=1; ky.value=huiData[currentMoney].ky; save(); render(); }
+function capNhatNgay(){ huiData[currentMoney].ngay[huiData[currentMoney].ky] = ngayKhui.value; save(); }
+
+function themNguoi(){ huiData[currentMoney].danhSach.push({ten:"Người "+(huiData[currentMoney].danhSach.length+1),lichSu:{}}); save(); render(); }
+function daChet(n){ let ky=huiData[currentMoney].ky; for(let k in n.lichSu) if(Number(k)<ky && n.lichSu[k].daHot) return true; return false; }
+function tickDong(i){ let ls=huiData[currentMoney].danhSach[i].lichSu[huiData[currentMoney].ky]; if(ls){ ls.daDong=!ls.daDong; save(); render(); } }
+
+function hotHui(i){
+    let ky=huiData[currentMoney].ky;
+    let bo=parseInt(prompt("Nhập tiền bỏ thăm:"))||0;
+    huiData[currentMoney].danhSach.forEach(n=>{ if(!n.lichSu[ky]) n.lichSu[ky]={dong:currentMoney, daDong:false, daHot:false, boTham:0}; });
+    huiData[currentMoney].danhSach[i].lichSu[ky].daHot=true;
+    huiData[currentMoney].danhSach[i].lichSu[ky].dong=0;
+    huiData[currentMoney].danhSach[i].lichSu[ky].boTham=bo;
+    let tong=0;
+    huiData[currentMoney].danhSach.forEach((n,idx)=>{
+        if(idx!==i){ n.lichSu[ky].dong = !daChet(n)? currentMoney-bo : currentMoney; tong += n.lichSu[ky].dong; }
+    });
+    huiData[currentMoney].tongHot[ky]=tong;
+    alert("💰 Hốt được "+tong.toLocaleString()+" đ");
+    save(); render();
+}
+
+function xoaNguoi(i){ huiData[currentMoney].danhSach.splice(i,1); save(); render(); }
+
+function veBang(){
+    let kyHienTai=huiData[currentMoney].ky;
+    ky.value=kyHienTai;
+    ngayKhui.value=huiData[currentMoney].ngay[kyHienTai]||"";
+
+    let html="";
+    huiData[currentMoney].danhSach.forEach((n,i)=>{
+        let ls=n.lichSu[kyHienTai];
+        html+=`<tr>
+<td><input type="text" value="${n.ten}" oninput="huiData[currentMoney].danhSach[${i}].ten=this.value;save()"></td>
+<td onclick="tickDong(${i})" style="cursor:pointer">${ls?.daDong?"✔":""}</td>
+<td>${ls?ls.dong.toLocaleString()+" đ":""}</td>
+<td>${ls?.boTham?ls.boTham.toLocaleString()+" đ":""}</td>
+<td>${ls?.daHot?"🔥 ĐÃ HỐT":daChet(n)?"☠ CHƯNG CHẾT":"✔ CHƯNG SỐNG"}${!ls?.daHot && !daChet(n)?`<br><button class="hot" onclick="hotHui(${i})">Hốt</button>`:""}</td>
+<td><button class="xoa" onclick="xoaNguoi(${i})">❌</button></td>
+</tr>`;
+    });
+    document.getElementById("bang").innerHTML=html;
+
+    let tenNguoiHot="";
+    huiData[currentMoney].danhSach.forEach(n=>{
+        let ls=n.lichSu[kyHienTai];
+        if(ls?.daHot) tenNguoiHot=n.ten;
+    });
+    document.getElementById("tongHot").innerHTML=huiData[currentMoney].tongHot[kyHienTai]? "💰 <b>"+tenNguoiHot+"</b> hốt: <b>"+huiData[currentMoney].tongHot[kyHienTai].toLocaleString()+" đ</b>":"";  
+}
+
+/* ===== XUẤT PDF ===== */
+function taoDienGiaiPDF(){
+    let ky= huiData[currentMoney].ky;
+    let tenNguoiHot = huiData[currentMoney].danhSach.find(n=>n.lichSu[ky]?.daHot)?.ten || "Chưa hốt";
+    let bangNguoi = `<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#3498db;color:#fff">
+<th>Tên</th><th>Đã đóng</th><th>Tiền đóng</th><th>Bỏ thăm</th><th>Trạng thái</th></tr></thead><tbody>`;
+    huiData[currentMoney].danhSach.forEach(n=>{
+        let ls=n.lichSu[ky];
+        let trangThai = ls?.daHot?"🔥 HỐT":daChet(n)?"☠ CHẾT":"✔ SỐNG";
+        let mau = ls?.daHot?"#d4edda":daChet(n)?"#f8d7da":"#ffffff";
+        bangNguoi += `<tr style="background:${mau}"><td>${n.ten}</td><td>${ls?.daDong?"✔":""}</td><td>${ls?ls.dong.toLocaleString()+" đ":""}</td><td>${ls?.boTham?ls.boTham.toLocaleString()+" đ":""}</td><td>${trangThai}</td></tr>`;
+    });
+    bangNguoi+="</tbody></table>";
+
+    let tongTien = huiData[currentMoney].danhSach.reduce((acc,n)=>{
+        let ls = n.lichSu[ky]; return ls? acc + (ls.daHot?0:ls.dong) : acc;
+    },0);
+    let thucNhan = tongTien - DAU_THAO;
+
+    return `<div style="margin-top:20px;padding:15px;border:2px dashed #444;font-size:18px;line-height:1.6">
+<b>📌 THÔNG TIN HỐT HỤI – KỲ ${ky}</b><br><br>
+${bangNguoi}
+<div style="margin-top:10px;font-weight:bold;color:#000">
+Người hốt: ${tenNguoiHot}<br>
+Tổng tiền hụi: ${tongTien.toLocaleString()} đ<br>
+Trừ đầu thảo: ${DAU_THAO.toLocaleString()} đ<br>
+<b>👉 Thực nhận: ${thucNhan.toLocaleString()} đ</b>
+</div></div>`;
+}
+
+function thongTinChuHuiQR(){
+    let bankId="MB",accountNo="99999250509",accountName="NGUYEN+HANG+NI";
+    let qrUrl=`https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?accountName=${accountName}`;
+    return `<div style="margin-top:30px;padding:15px;border-top:2px solid #000;display:flex;gap:20px;align-items:center;font-size:18px;line-height:1.7">
+<img src="${qrUrl}" width="180">
+<div><b>👤 CHỦ HỤI</b><br>Tên: <b>Nguyễn Hằng Ni</b><br>📞 SĐT: <b>0947 197 319</b><br>🏦 Ngân hàng: <b>MB Bank</b><br>💳 STK: <b>99999250509</b></div></div>`;
+}
+
+function xuatPDF(){
+    // Xác định đầu thảo theo dây hụi
+    let dauThao;
+    if(currentMoney===5000000) dauThao=3000000;
+    else if(currentMoney===10000000) dauThao=6000000;
+    else if(currentMoney===20000000) dauThao=10000000;
+    else dauThao=0;
+
+    let kyHienTai = huiData[currentMoney].ky;
+
+    // Tên người hốt
+    let tenNguoiHot = huiData[currentMoney].danhSach.find(n=>n.lichSu[kyHienTai]?.daHot)?.ten || "Chưa hốt";
+
+    // Tạo bảng PDF
+    let bangPDF = `
+    <table style="width:100%;border-collapse:collapse;">
+    <thead>
+    <tr style="background:#3498db;color:#fff">
+        <th>Tên</th>
+        <th>Đã đóng</th>
+        <th>Tiền đóng</th>
+        <th>Bỏ thăm</th>
+        <th>Trạng thái</th>
+    </tr>
+    </thead>
+    <tbody>
+    ${huiData[currentMoney].danhSach.map(n=>{
+        let ls = n.lichSu[kyHienTai];
+        let trangThai = ls?.daHot ? "🔥 HỐT KỲ NÀY" : daChet(n) ? "☠ CHƯNG CHẾT" : "✔ CHƯNG SỐNG";
+        let mau = ls?.daHot ? "#d4edda" : daChet(n) ? "#f8d7da" : "#ffffff";
+        return `<tr style="background:${mau};color:#000">
+            <td>${n.ten}</td>
+            <td>${ls?.daDong?"✔":""}</td>
+            <td>${ls?ls.dong.toLocaleString()+" đ":""}</td>
+            <td>${ls?.boTham?ls.boTham.toLocaleString()+" đ":""}</td>
+            <td>${trangThai}</td>
+        </tr>`;
+    }).join("")}
+    </tbody>
+    </table>`;
+
+    // Tính tổng tiền và thực nhận
+    let tongTien = huiData[currentMoney].danhSach.reduce((acc,n)=>{
+        let ls = n.lichSu[kyHienTai];
+        if(ls){
+            if(ls.daHot) return acc;
+            return acc + ls.dong;
+        }
+        return acc;
+    },0);
+
+    let thucNhan = tongTien - dauThao;
+
+    // QR thanh toán và thông tin chủ hụi
+    let bankId = "MB";
+    let accountNo = "99999250509";
+    let accountName = "NGUYEN+HANG+NI";
+    let qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?accountName=${accountName}`;
+
+    // Mở PDF mới
+    let w = window.open("", "_blank");
+    w.document.write(`
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <title>Phiếu Hụi</title>
+    <style>
+    body{font-family:Arial;font-size:18px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #000;padding:8px;text-align:center}
+    th{background:#3498db;color:#fff}
+    .quayLai{margin-top:30px;padding:15px;border:2px dashed #333;text-align:center}
+    .quayLai button{padding:8px 14px;background:#27ae60;color:#fff;border:none;border-radius:5px;cursor:pointer}
+    @media print{.quayLai{display:none}}
+    </style>
+    </head>
+    <body>
+
+    <div style="margin-top:20px;padding:15px;border:2px dashed #444;font-size:18px;line-height:1.6">
+        <b>📌 THÔNG TIN HỐT HỤI – KỲ ${kyHienTai}</b><br><br>
+        ${bangPDF}
+        <div style="margin-top:10px;font-weight:bold;color:#000">
+        Người hốt: ${tenNguoiHot}<br>
+        Tổng tiền hụi: ${tongTien.toLocaleString()} đ<br>
+        Trừ đầu thảo: ${dauThao.toLocaleString()} đ<br>
+        <b>👉 Thực nhận: ${thucNhan.toLocaleString()} đ</b>
+        </div>
+    </div>
+
+    <div style="margin-top:30px;padding:15px;border-top:2px solid #000;display:flex;gap:20px;align-items:center;font-size:18px;line-height:1.7">
+        <img src="${qrUrl}" width="180">
+        <div>
+            <b>👤 CHỦ HỤI</b><br>
+            Tên: <b>Nguyễn Hằng Ni</b><br>
+            📞 SĐT: <b>0947 197 319</b><br>
+            🏦 Ngân hàng: <b>MB Bank</b><br>
+            💳 STK: <b>99999250509</b><br>
+        </div>
+    </div>
+
+    <div class="quayLai">
+        👉 Quay lại để tiếp tục dây hụi / khui kỳ mới<br>
+        <button onclick="window.close()">⬅ Quay lại Quản Lý Hụi</button>
+    </div>
+
+    <script>
+      window.onload = function(){ setTimeout(()=>{ window.print(); },500); }
+    <\/script>
+
+    </body>
+    </html>
+    `);
+    w.document.close();
+}
+
+function resetHui(){ if(!confirm("Reset toàn bộ dây hụi?")) return; huiData[currentMoney]={ky:1,ngay:{},tongHot:{},danhSach:[]}; save(); veBang(); }
+
+function render(){ if(huiData[currentMoney]) veBang(); }
+
+</script>
+</body>
+</html>
